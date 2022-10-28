@@ -26,7 +26,7 @@ type NewServerFlags struct {
 	certFile, keyFile     string
 }
 
-func NewServerCommand() *cobra.Command {
+func newServerCommand() *cobra.Command {
 
 	log.SetFlags(log.Lshortfile)
 	cFlags := new(NewServerFlags)

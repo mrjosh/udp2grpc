@@ -20,7 +20,7 @@ type NewClientFlags struct {
 	certFile, serverNameOverride string
 }
 
-func NewClientCommand() *cobra.Command {
+func newClientCommand() *cobra.Command {
 
 	log.SetFlags(log.Lshortfile)
 	cFlags := new(NewClientFlags)

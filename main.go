@@ -4,9 +4,18 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 
 	"github.com/mrjosh/udp2grpc/cmds"
+	"github.com/mrjosh/udp2grpc/internal/version"
 	"github.com/spf13/cobra"
+)
+
+var (
+	BranchName string
+	Version    string
+	CompiledBy string
+	BuildTime  string
 )
 
 func main() {
@@ -28,10 +37,16 @@ func main() {
 	}
 
 	rootCmd.SetArgs(os.Args[1:])
-	rootCmd.AddCommand(cmds.NewServerCommand())
-	rootCmd.AddCommand(cmds.NewClientCommand())
 
-	if err := rootCmd.Execute(); err != nil {
+	vi := &version.BuildInfo{
+		Version:    Version,
+		Branch:     BranchName,
+		CompiledBy: CompiledBy,
+		GoVersion:  runtime.Version(),
+		BuildTime:  BuildTime,
+	}
+
+	if err := cmds.Start(vi, rootCmd); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
