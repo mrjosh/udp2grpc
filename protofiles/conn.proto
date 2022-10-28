@@ -1,0 +1,12 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "/proto";
+
+message Packet {
+  bytes body = 1;
+}
+
+service VPNService {
+  rpc Connect(stream Packet) returns (stream Packet);
+}
