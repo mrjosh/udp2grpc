@@ -23,6 +23,7 @@ type NewServerFlags struct {
 	localaddr, remoteaddr string
 	insecure              bool
 	certFile, keyFile     string
+	password              string
 }
 
 func newServerCommand() *cobra.Command {
@@ -34,6 +35,10 @@ func newServerCommand() *cobra.Command {
 		Use:   "server",
 		Short: "Start a udp2grpc tcp/server",
 		RunE: func(cmd *cobra.Command, args []string) error {
+
+			if cFlags.password == "" {
+				return errors.New("server password is required")
+			}
 
 			if cFlags.remoteaddr == "" {
 				return fmt.Errorf("Server remote address is required. try with flag 'utg server -r127.0.0.1:port '")
@@ -89,7 +94,7 @@ func newServerCommand() *cobra.Command {
 			}
 
 			// Register binance services
-			svc := service.NewVPNService(remoteConn)
+			svc := service.NewVPNService(remoteConn, cFlags.password)
 			defer svc.Close()
 
 			proto.RegisterVPNServiceServer(server, svc)
@@ -110,6 +115,7 @@ func newServerCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&cFlags.certFile, "tls-cert-file", "c", "", "Server TLS certificate file")
 	cmd.Flags().StringVarP(&cFlags.keyFile, "tls-key-file", "k", "", "Server TLS key file")
 	cmd.Flags().BoolVarP(&cFlags.insecure, "insecure", "I", false, "Start the server without tls")
+	cmd.Flags().StringVarP(&cFlags.password, "password", "p", "", "Server password")
 	return cmd
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mrjosh/udp2grpc/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc/metadata"
 )
 
 const MaxSegmentSize = (1 << 16) - 1 // largest possible UDP datagram
@@ -14,14 +15,16 @@ const MaxSegmentSize = (1 << 16) - 1 // largest possible UDP datagram
 type VPNService struct {
 	remoteConn            *net.UDPConn
 	localChan, remoteChan chan *proto.Packet
+	password              string
 	proto.UnimplementedVPNServiceServer
 }
 
-func NewVPNService(remoteConn *net.UDPConn) *VPNService {
+func NewVPNService(remoteConn *net.UDPConn, password string) *VPNService {
 	svc := &VPNService{
 		remoteChan: make(chan *proto.Packet),
 		localChan:  make(chan *proto.Packet),
 		remoteConn: remoteConn,
+		password:   password,
 	}
 	go svc.handleRemoteConn()
 	return svc
@@ -63,6 +66,20 @@ func (v *VPNService) Close() error {
 }
 
 func (v *VPNService) Connect(stream proto.VPNService_ConnectServer) error {
+
+	headers, ok := metadata.FromIncomingContext(stream.Context())
+	if !ok {
+		return errors.New("could not get metadatas from context")
+	}
+
+	password := headers.Get("password")
+	if len(password) == 0 {
+		return errors.New("password is required")
+	}
+
+	if password[0] != v.password {
+		return errors.New("password incorrect")
+	}
 
 	log.Println("new connection: server_ready")
 

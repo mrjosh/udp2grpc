@@ -12,12 +12,14 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 )
 
 type NewClientFlags struct {
 	insecure                     bool
 	localaddr, remoteaddr        string
 	certFile, serverNameOverride string
+	password                     string
 }
 
 func newClientCommand() *cobra.Command {
@@ -29,6 +31,10 @@ func newClientCommand() *cobra.Command {
 		Use:   "client",
 		Short: "Start a udp2grpc tcp/client",
 		RunE: func(cmd *cobra.Command, args []string) error {
+
+			if cFlags.password == "" {
+				return errors.New("server password is required")
+			}
 
 			if cFlags.remoteaddr == "" {
 				return errors.New("server remote address is required. try 'utg client -rdomain.tld:52935'")
@@ -67,7 +73,13 @@ func newClientCommand() *cobra.Command {
 			log.Println(fmt.Sprintf("Connecting to tcp:%s", cFlags.remoteaddr))
 
 			callOpts := grpc.EmptyCallOption{}
-			stream, err := c.Connect(context.Background(), callOpts)
+
+			md := metadata.New(map[string]string{
+				"password": cFlags.password,
+			})
+
+			ctx := metadata.NewOutgoingContext(context.Background(), md)
+			stream, err := c.Connect(ctx, callOpts)
 			if err != nil {
 				return err
 			}
@@ -90,5 +102,6 @@ func newClientCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&cFlags.certFile, "tls-cert-file", "c", "", "Server TLS certificate file")
 	cmd.Flags().StringVarP(&cFlags.serverNameOverride, "tls-server-name", "o", "", "TLS server name override")
 	cmd.Flags().BoolVarP(&cFlags.insecure, "insecure", "I", false, "Connect to server without tls")
+	cmd.Flags().StringVarP(&cFlags.password, "password", "p", "", "Server password")
 	return cmd
 }
