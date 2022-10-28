@@ -21,7 +21,6 @@ import (
 
 type NewServerFlags struct {
 	localaddr, remoteaddr string
-	port                  int
 	insecure              bool
 	certFile, keyFile     string
 }
@@ -37,10 +36,15 @@ func newServerCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			if cFlags.remoteaddr == "" {
-				return fmt.Errorf("Server remote address is required. try with flag 'utg server --remote-address=\"127.0.0.1\" '")
+				return fmt.Errorf("Server remote address is required. try with flag 'utg server -r127.0.0.1:port '")
 			}
 
-			listener, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", cFlags.localaddr, cFlags.port))
+			localaddr := strings.Split(cFlags.localaddr, ":")
+			if len(localaddr) < 2 {
+				return fmt.Errorf("Local server address should contain ip:port")
+			}
+
+			listener, err := net.Listen("tcp4", cFlags.localaddr)
 			if err != nil {
 				return fmt.Errorf("could not create tcp listener: %v", err)
 			}
@@ -65,7 +69,6 @@ func newServerCommand() *cobra.Command {
 				if cFlags.certFile == "" {
 					return errors.New("--tls-cert-file flag is required in tls mode. turn off tls mode with --insecure flag")
 				}
-
 				if cFlags.keyFile == "" {
 					return errors.New("--tls-key-file flag is required in tls mode. turn off tls mode with --insecure flag")
 				}
@@ -93,7 +96,7 @@ func newServerCommand() *cobra.Command {
 
 			reflection.Register(server)
 
-			log.Println(fmt.Sprintf("Server running in tcp:%s:%d", cFlags.localaddr, cFlags.port))
+			log.Println(fmt.Sprintf("Server running in tcp:%s", cFlags.localaddr))
 			if err := server.Serve(listener); err != nil {
 				return fmt.Errorf("could not serve grpc.tcp.listener: %v", err)
 			}
@@ -102,12 +105,11 @@ func newServerCommand() *cobra.Command {
 		},
 	}
 	cmd.SuggestionsMinimumDistance = 1
-	cmd.Flags().StringVarP(&cFlags.localaddr, "local-address", "l", "0.0.0.0", "Local server address")
+	cmd.Flags().StringVarP(&cFlags.localaddr, "local-address", "l", "0.0.0.0:52935", "Local server address")
 	cmd.Flags().StringVarP(&cFlags.remoteaddr, "remote-address", "r", "", "Remote address")
-	cmd.Flags().IntVarP(&cFlags.port, "port", "p", 52935, "Local server port")
 	cmd.Flags().StringVarP(&cFlags.certFile, "tls-cert-file", "c", "", "Server TLS certificate file")
-	cmd.Flags().StringVarP(&cFlags.keyFile, "tls-key-file", "s", "", "Server TLS key file")
-	cmd.Flags().BoolVarP(&cFlags.insecure, "insecure", "k", false, "Start the server without tls")
+	cmd.Flags().StringVarP(&cFlags.keyFile, "tls-key-file", "k", "", "Server TLS key file")
+	cmd.Flags().BoolVarP(&cFlags.insecure, "insecure", "I", false, "Start the server without tls")
 	return cmd
 }
 

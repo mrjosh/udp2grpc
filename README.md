@@ -6,7 +6,7 @@
  / / / / / / / /_/ /_/ // __ \/ /_/ / /_/ / /     
 / /_/ / /_/ / ____/ __// /_/ / _, _/ ____/ /___   
 \____/_____/_/   /____/\__, /_/ |_/_/    \____/   
-                      /____/
+/____/
 </pre>
 
 ## ⚠️ This project is still in early development. ⚠️
@@ -24,11 +24,13 @@ Assume your server ip is 44.55.66.77, you have a service listening on udp port 5
 
 ```bash
 # Run at server side:
-utg server -r127.0.0.1:51820 --tls-cert-file cert/server.crt --tls-key-file cert/server.key
+utg server -l0.0.0.0:52935 -r127.0.0.1:51820 --tls-cert-file cert/server.crt --tls-key-file cert/server.key
 
 # Run at client side:
-utg client -rdomain.tld --tls-cert-file cert/server.crt -l0.0.0.0 -P51820
+utg client -rdomain.tld:52935 -l0.0.0.0:51820 --tls-cert-file cert/server.crt 
 ```
+
+if you wish to run the server without tls, use the flag `--insecure` for client and server
 
 ## Contributing
 Thank you for considering contributing to UDP2gRPC project!
