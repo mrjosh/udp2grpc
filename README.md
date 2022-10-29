@@ -13,16 +13,14 @@
 
 ## UDP2gRPC
 A Tunnel which Turns UDP Traffic into Encrypted gRPC/TCP Traffic,helps you Bypass UDP FireWalls(or Unstable UDP Environment)
+Assume your UDP is blocked or being QOS-ed or just poorly supported.
 
 ## Getting Started
 ### Installing
 Download binary release from https://github.com/mrjosh/udp2grpc/releases
 
-### Running
-Assume your UDP is blocked or being QOS-ed or just poorly supported.
-Assume your server ip is 127.0.0.1 and your service domain is example.com
-
 ### Generate certificates for server and client
+Assume your server ip is 127.0.0.1 and your service domain is example.com
 ```bash
 # generate for specific ip address
 utg gen-certificates --dir ./cert --ip 127.0.0.1
@@ -34,8 +32,9 @@ utg gen-certificates --dir ./cert --domain example.com
 utg gen-certificates --dir ./cert --domain example.com --ip 127.0.0.1
 ```
 
+### Running
 Assume your server domain example.com and you have a service listening on udp port 51820.
-### Run server and client
+if you wish to run the server without tls, use the flag `--insecure` for client and server
 ```bash
 # Run at server side:
 utg server -l0.0.0.0:52935 -r127.0.0.1:51820 --password="super-secure-password" --tls-cert-file cert/server.crt --tls-key-file cert/server.key
@@ -43,8 +42,6 @@ utg server -l0.0.0.0:52935 -r127.0.0.1:51820 --password="super-secure-password" 
 # Run at client side:
 utg client -rexample.com:52935 -l0.0.0.0:51820 --password="super-secure-password" --tls-cert-file cert/server.crt 
 ```
-
-if you wish to run the server without tls, use the flag `--insecure` for client and server
 
 ### Docker-Compose example
 ```yaml
