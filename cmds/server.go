@@ -94,10 +94,10 @@ func newServerCommand() *cobra.Command {
 			}
 
 			// Register binance services
-			svc := service.NewVPNService(remoteConn, cFlags.password)
+			svc := service.NewTunnel(remoteConn, cFlags.password)
 			defer svc.Close()
 
-			proto.RegisterVPNServiceServer(server, svc)
+			proto.RegisterTunnelServiceServer(server, svc)
 
 			reflection.Register(server)
 

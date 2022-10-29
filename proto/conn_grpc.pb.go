@@ -14,45 +14,45 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// VPNServiceClient is the client API for VPNService service.
+// TunnelServiceClient is the client API for TunnelService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type VPNServiceClient interface {
-	Connect(ctx context.Context, opts ...grpc.CallOption) (VPNService_ConnectClient, error)
+type TunnelServiceClient interface {
+	Connect(ctx context.Context, opts ...grpc.CallOption) (TunnelService_ConnectClient, error)
 }
 
-type vPNServiceClient struct {
+type tunnelServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewVPNServiceClient(cc grpc.ClientConnInterface) VPNServiceClient {
-	return &vPNServiceClient{cc}
+func NewTunnelServiceClient(cc grpc.ClientConnInterface) TunnelServiceClient {
+	return &tunnelServiceClient{cc}
 }
 
-func (c *vPNServiceClient) Connect(ctx context.Context, opts ...grpc.CallOption) (VPNService_ConnectClient, error) {
-	stream, err := c.cc.NewStream(ctx, &VPNService_ServiceDesc.Streams[0], "/proto.VPNService/Connect", opts...)
+func (c *tunnelServiceClient) Connect(ctx context.Context, opts ...grpc.CallOption) (TunnelService_ConnectClient, error) {
+	stream, err := c.cc.NewStream(ctx, &TunnelService_ServiceDesc.Streams[0], "/proto.TunnelService/Connect", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &vPNServiceConnectClient{stream}
+	x := &tunnelServiceConnectClient{stream}
 	return x, nil
 }
 
-type VPNService_ConnectClient interface {
+type TunnelService_ConnectClient interface {
 	Send(*Packet) error
 	Recv() (*Packet, error)
 	grpc.ClientStream
 }
 
-type vPNServiceConnectClient struct {
+type tunnelServiceConnectClient struct {
 	grpc.ClientStream
 }
 
-func (x *vPNServiceConnectClient) Send(m *Packet) error {
+func (x *tunnelServiceConnectClient) Send(m *Packet) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *vPNServiceConnectClient) Recv() (*Packet, error) {
+func (x *tunnelServiceConnectClient) Recv() (*Packet, error) {
 	m := new(Packet)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -60,53 +60,53 @@ func (x *vPNServiceConnectClient) Recv() (*Packet, error) {
 	return m, nil
 }
 
-// VPNServiceServer is the server API for VPNService service.
-// All implementations must embed UnimplementedVPNServiceServer
+// TunnelServiceServer is the server API for TunnelService service.
+// All implementations must embed UnimplementedTunnelServiceServer
 // for forward compatibility
-type VPNServiceServer interface {
-	Connect(VPNService_ConnectServer) error
-	mustEmbedUnimplementedVPNServiceServer()
+type TunnelServiceServer interface {
+	Connect(TunnelService_ConnectServer) error
+	mustEmbedUnimplementedTunnelServiceServer()
 }
 
-// UnimplementedVPNServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedVPNServiceServer struct {
+// UnimplementedTunnelServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedTunnelServiceServer struct {
 }
 
-func (UnimplementedVPNServiceServer) Connect(VPNService_ConnectServer) error {
+func (UnimplementedTunnelServiceServer) Connect(TunnelService_ConnectServer) error {
 	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
 }
-func (UnimplementedVPNServiceServer) mustEmbedUnimplementedVPNServiceServer() {}
+func (UnimplementedTunnelServiceServer) mustEmbedUnimplementedTunnelServiceServer() {}
 
-// UnsafeVPNServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to VPNServiceServer will
+// UnsafeTunnelServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to TunnelServiceServer will
 // result in compilation errors.
-type UnsafeVPNServiceServer interface {
-	mustEmbedUnimplementedVPNServiceServer()
+type UnsafeTunnelServiceServer interface {
+	mustEmbedUnimplementedTunnelServiceServer()
 }
 
-func RegisterVPNServiceServer(s grpc.ServiceRegistrar, srv VPNServiceServer) {
-	s.RegisterService(&VPNService_ServiceDesc, srv)
+func RegisterTunnelServiceServer(s grpc.ServiceRegistrar, srv TunnelServiceServer) {
+	s.RegisterService(&TunnelService_ServiceDesc, srv)
 }
 
-func _VPNService_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(VPNServiceServer).Connect(&vPNServiceConnectServer{stream})
+func _TunnelService_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(TunnelServiceServer).Connect(&tunnelServiceConnectServer{stream})
 }
 
-type VPNService_ConnectServer interface {
+type TunnelService_ConnectServer interface {
 	Send(*Packet) error
 	Recv() (*Packet, error)
 	grpc.ServerStream
 }
 
-type vPNServiceConnectServer struct {
+type tunnelServiceConnectServer struct {
 	grpc.ServerStream
 }
 
-func (x *vPNServiceConnectServer) Send(m *Packet) error {
+func (x *tunnelServiceConnectServer) Send(m *Packet) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *vPNServiceConnectServer) Recv() (*Packet, error) {
+func (x *tunnelServiceConnectServer) Recv() (*Packet, error) {
 	m := new(Packet)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -114,17 +114,17 @@ func (x *vPNServiceConnectServer) Recv() (*Packet, error) {
 	return m, nil
 }
 
-// VPNService_ServiceDesc is the grpc.ServiceDesc for VPNService service.
+// TunnelService_ServiceDesc is the grpc.ServiceDesc for TunnelService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var VPNService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "proto.VPNService",
-	HandlerType: (*VPNServiceServer)(nil),
+var TunnelService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "proto.TunnelService",
+	HandlerType: (*TunnelServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Connect",
-			Handler:       _VPNService_Connect_Handler,
+			Handler:       _TunnelService_Connect_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

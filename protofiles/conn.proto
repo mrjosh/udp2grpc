@@ -7,6 +7,6 @@ message Packet {
   bytes body = 1;
 }
 
-service VPNService {
+service TunnelService {
   rpc Connect(stream Packet) returns (stream Packet);
 }

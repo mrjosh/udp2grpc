@@ -68,7 +68,7 @@ func newClientCommand() *cobra.Command {
 				return fmt.Errorf("did not connect: %v", err)
 			}
 
-			c := proto.NewVPNServiceClient(conn)
+			c := proto.NewTunnelServiceClient(conn)
 
 			log.Println(fmt.Sprintf("connecting to tcp:%s", cFlags.remoteaddr))
 

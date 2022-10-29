@@ -14,7 +14,7 @@ import (
 
 type Client struct {
 	localConn             *net.UDPConn
-	remoteStream          proto.VPNService_ConnectClient
+	remoteStream          proto.TunnelService_ConnectClient
 	localChan, remoteChan chan *proto.Packet
 	localConnAddr         net.Addr
 }
@@ -23,7 +23,7 @@ func (c *Client) Close() error {
 	return c.remoteStream.CloseSend()
 }
 
-func NewClient(localAddress string, remoteStream proto.VPNService_ConnectClient) (*Client, error) {
+func NewClient(localAddress string, remoteStream proto.TunnelService_ConnectClient) (*Client, error) {
 	log.Println(fmt.Sprintf("create a new local connection on udp:%s", localAddress))
 	localConn, err := createNewLocalUDPListener(localAddress)
 	if err != nil {

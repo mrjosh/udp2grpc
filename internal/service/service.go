@@ -11,15 +11,15 @@ import (
 
 const MaxSegmentSize = (1 << 16) - 1 // largest possible UDP datagram
 
-type VPNService struct {
+type TunnelService struct {
 	remoteConn            *net.UDPConn
 	localChan, remoteChan chan *proto.Packet
 	password              string
-	proto.UnimplementedVPNServiceServer
+	proto.UnimplementedTunnelServiceServer
 }
 
-func NewVPNService(remoteConn *net.UDPConn, password string) *VPNService {
-	svc := &VPNService{
+func NewTunnel(remoteConn *net.UDPConn, password string) *TunnelService {
+	svc := &TunnelService{
 		remoteChan: make(chan *proto.Packet),
 		localChan:  make(chan *proto.Packet),
 		remoteConn: remoteConn,
@@ -29,14 +29,14 @@ func NewVPNService(remoteConn *net.UDPConn, password string) *VPNService {
 	return svc
 }
 
-func (v *VPNService) handleRemoteConn() error {
+func (t *TunnelService) handleRemoteConn() error {
 
 	go func() {
 
 		for {
-			p := <-v.localChan
+			p := <-t.localChan
 			if p.Body != nil {
-				if _, err := v.remoteConn.Write(p.Body); err != nil {
+				if _, err := t.remoteConn.Write(p.Body); err != nil {
 					log.Println(err)
 				}
 			}
@@ -47,12 +47,12 @@ func (v *VPNService) handleRemoteConn() error {
 	for {
 
 		buf := make([]byte, MaxSegmentSize)
-		n, err := v.remoteConn.Read(buf[:])
+		n, err := t.remoteConn.Read(buf[:])
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		v.remoteChan <- &proto.Packet{
+		t.remoteChan <- &proto.Packet{
 			Body: buf[:n],
 		}
 
@@ -60,11 +60,11 @@ func (v *VPNService) handleRemoteConn() error {
 
 }
 
-func (v *VPNService) Close() error {
-	return v.remoteConn.Close()
+func (t *TunnelService) Close() error {
+	return t.remoteConn.Close()
 }
 
-func (v *VPNService) Connect(stream proto.VPNService_ConnectServer) error {
+func (t *TunnelService) Connect(stream proto.TunnelService_ConnectServer) error {
 
 	headers, ok := metadata.FromIncomingContext(stream.Context())
 	if !ok {
@@ -76,7 +76,7 @@ func (v *VPNService) Connect(stream proto.VPNService_ConnectServer) error {
 		return errors.New("password is required")
 	}
 
-	if password[0] != v.password {
+	if password[0] != t.password {
 		return errors.New("password incorrect")
 	}
 
@@ -85,7 +85,7 @@ func (v *VPNService) Connect(stream proto.VPNService_ConnectServer) error {
 	go func() {
 
 		for {
-			p := <-v.remoteChan
+			p := <-t.remoteChan
 			if p.Body != nil {
 				if err := stream.Send(p); err != nil {
 					log.Println(err)
@@ -103,7 +103,7 @@ func (v *VPNService) Connect(stream proto.VPNService_ConnectServer) error {
 		}
 
 		//log.Println(fmt.Sprintf("new packet: len[%d]", len(req.Body)))
-		v.localChan <- req
+		t.localChan <- req
 
 	}
 
