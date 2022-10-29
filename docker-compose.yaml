@@ -1,0 +1,44 @@
+version: '3.7'
+
+services:
+
+  udp2grpc-server:
+    image: mrjoshlab/udp2grpc:latest
+    ports:
+      - "52935:52935/tcp"
+    command:
+      - "server"
+      # grpc listen address
+      - "-l0.0.0.0:52935"
+      # remote conn address
+      - "-r127.0.0.1:51820"
+      # tls certificate public file
+      - "--tls-cert-file"
+      - "/cert/server.crt"
+      # tls certificate pivate file
+      - "--tls-key-file"
+      - "/cert/server.key"
+      # super secure password here
+      - "--password=super-secure-password"
+    volumes:
+      - "$PWD/cert/:/cert"
+    restart: unless-stopped
+
+  udp2grpc-client:
+    image: mrjoshlab/udp2grpc:latest
+    ports:
+      - "51820:51820/udp"
+    command:
+      - "client"
+      # local udp connection address
+      - "-l0.0.0.0:51820"
+      # server domain name with port
+      - "-rdomain.tld:52935"
+      # tls certificate public file
+      - "--tls-cert-file"
+      - "cert/server.crt"
+      # super secure password here
+      - "--password=super-secure-password"
+    volumes:
+      - "$PWD/cert/server.crt:/cert/server.crt"
+    restart: unless-stopped
