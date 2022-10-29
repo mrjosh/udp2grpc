@@ -101,7 +101,7 @@ func newServerCommand() *cobra.Command {
 
 			reflection.Register(server)
 
-			log.Println(fmt.Sprintf("Server running in tcp:%s", cFlags.localaddr))
+			log.Println(fmt.Sprintf("server running on tcp:%s", cFlags.localaddr))
 			if err := server.Serve(listener); err != nil {
 				return fmt.Errorf("could not serve grpc.tcp.listener: %v", err)
 			}

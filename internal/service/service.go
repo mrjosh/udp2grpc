@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"log"
 	"net"
 
@@ -103,7 +102,7 @@ func (v *VPNService) Connect(stream proto.VPNService_ConnectServer) error {
 			return errors.Wrapf(err, "can't receive message")
 		}
 
-		log.Println(fmt.Sprintf("new packet: len[%d]", len(req.Body)))
+		//log.Println(fmt.Sprintf("new packet: len[%d]", len(req.Body)))
 		v.localChan <- req
 
 	}

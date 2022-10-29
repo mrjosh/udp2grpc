@@ -24,7 +24,7 @@ func (c *Client) Close() error {
 }
 
 func NewClient(localAddress string, remoteStream proto.VPNService_ConnectClient) (*Client, error) {
-	log.Println(fmt.Sprintf("Create a new local connection on udp:%s", localAddress))
+	log.Println(fmt.Sprintf("create a new local connection on udp:%s", localAddress))
 	localConn, err := createNewLocalUDPListener(localAddress)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (c *Client) Listen() error {
 			return errors.Wrapf(err, "can't receive message")
 		}
 
-		log.Println(fmt.Sprintf("new packet: len[%d]", len(req.Body)))
+		//log.Println(fmt.Sprintf("new packet: len[%d]", len(req.Body)))
 		c.remoteChan <- req
 
 	}

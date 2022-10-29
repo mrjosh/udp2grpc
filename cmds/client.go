@@ -70,7 +70,7 @@ func newClientCommand() *cobra.Command {
 
 			c := proto.NewVPNServiceClient(conn)
 
-			log.Println(fmt.Sprintf("Connecting to tcp:%s", cFlags.remoteaddr))
+			log.Println(fmt.Sprintf("connecting to tcp:%s", cFlags.remoteaddr))
 
 			callOpts := grpc.EmptyCallOption{}
 
@@ -84,9 +84,9 @@ func newClientCommand() *cobra.Command {
 				return err
 			}
 
-			log.Println(fmt.Sprintf("Connected to tcp:%s", cFlags.remoteaddr))
+			log.Println(fmt.Sprintf("connected to tcp:%s client_ready", cFlags.remoteaddr))
 
-			ic, err := client.NewClient(cFlags.remoteaddr, stream)
+			ic, err := client.NewClient(cFlags.localaddr, stream)
 			if err != nil {
 				return err
 			}
