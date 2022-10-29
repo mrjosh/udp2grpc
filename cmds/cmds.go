@@ -16,5 +16,6 @@ func Start(vi *version.BuildInfo, rootCmd *cobra.Command) error {
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newServerCommand())
 	rootCmd.AddCommand(newClientCommand())
+	rootCmd.AddCommand(newGenCertificatesCommand())
 	return rootCmd.Execute()
 }

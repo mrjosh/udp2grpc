@@ -2,6 +2,22 @@ version: '3.7'
 
 services:
 
+  # init-container
+  # generate certifiactes for server and client
+  gen-certificates:
+    image: mrjoshlab/udp2grpc:latest
+    command:
+      - "gen-certificates"
+      # server ip address
+      - "--ip"
+      - "127.0.0.1"
+      # certificates directory
+      - "--dir"
+      - "/cert"
+    volumes:
+      - "$PWD/cert/:/cert"
+
+  # udp2grpc server container
   udp2grpc-server:
     image: mrjoshlab/udp2grpc:latest
     ports:
@@ -23,7 +39,11 @@ services:
     volumes:
       - "$PWD/cert/:/cert"
     restart: unless-stopped
+    depends_on:
+      gen-certificates:
+        condition: service_completed_successfully
 
+  # udp2grpc client container
   udp2grpc-client:
     image: mrjoshlab/udp2grpc:latest
     ports:
@@ -32,13 +52,16 @@ services:
       - "client"
       # local udp connection address
       - "-l0.0.0.0:51820"
-      # server domain name with port
-      - "-rdomain.tld:52935"
+      # server ip address with port
+      - "-r127.0.0.1:52935"
       # tls certificate public file
       - "--tls-cert-file"
-      - "cert/server.crt"
+      - "/cert/server.crt"
       # super secure password here
       - "--password=super-secure-password"
     volumes:
       - "$PWD/cert/server.crt:/cert/server.crt"
     restart: unless-stopped
+    depends_on:
+      gen-certificates:
+        condition: service_completed_successfully
