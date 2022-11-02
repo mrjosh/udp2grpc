@@ -1,8 +1,12 @@
 package service
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net"
+	"strconv"
+	"strings"
 
 	"github.com/mrjosh/udp2grpc/proto"
 	"github.com/pkg/errors"
@@ -13,33 +17,94 @@ const MaxSegmentSize = (1 << 16) - 1 // largest possible UDP datagram
 
 type TunnelService struct {
 	remoteConn            *net.UDPConn
+	remoteAddr            string
 	localChan, remoteChan chan *proto.Packet
 	password              string
 	proto.UnimplementedTunnelServiceServer
 }
 
-func NewTunnel(remoteConn *net.UDPConn, password string) *TunnelService {
-	svc := &TunnelService{
+func NewTunnel(remoteAddr, password string) *TunnelService {
+	return &TunnelService{
 		remoteChan: make(chan *proto.Packet),
 		localChan:  make(chan *proto.Packet),
-		remoteConn: remoteConn,
+		remoteAddr: remoteAddr,
 		password:   password,
 	}
-	go svc.handleRemoteConn()
-	return svc
 }
 
-func (t *TunnelService) handleRemoteConn() error {
+func (t *TunnelService) createRemoteConnection(ctx context.Context, address string) error {
+
+	remote := strings.Split(address, ":")
+	rport, err := strconv.Atoi(remote[1])
+	if err != nil {
+		return errors.New("listen flag should contains [ip/domain]:port")
+	}
+
+	raddrs, err := net.LookupIP(remote[0])
+	if err != nil {
+		return err
+	}
+
+	if len(raddrs) == 0 {
+		return fmt.Errorf("could not resolve domain [%s]", remote[0])
+	}
+
+	var raddr net.IP
+	for _, addr := range raddrs {
+		if ipv4 := addr.To4(); ipv4 != nil {
+			raddr = ipv4
+			break
+		}
+	}
+
+	if raddr == nil {
+		raddr = raddrs[0]
+	}
+
+	remoteConn, err := net.DialUDP(
+		"udp",
+		&net.UDPAddr{},
+		&net.UDPAddr{
+			IP:   raddr,
+			Port: rport,
+		},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	t.remoteConn = remoteConn
+	go t.handleRemoteConn(ctx)
+
+	return nil
+}
+
+func (t *TunnelService) handleRemoteConn(ctx context.Context) error {
 
 	go func() {
 
 		for {
-			p := <-t.localChan
-			if p.Body != nil {
-				if _, err := t.remoteConn.Write(p.Body); err != nil {
-					log.Println(err)
+
+			select {
+			case p, ok := <-t.localChan:
+				if p != nil && ok {
+
+					switch p.Type {
+					case proto.PACKET_TYPE_PING:
+						t.remoteChan <- &proto.Packet{
+							Type: proto.PACKET_TYPE_PONG,
+						}
+					case proto.PACKET_TYPE_BODY:
+						go t.remoteConn.Write(p.Body[:])
+					}
+
 				}
+			case <-ctx.Done():
+				t.remoteConn.Close()
+				return
 			}
+
 		}
 
 	}()
@@ -49,11 +114,12 @@ func (t *TunnelService) handleRemoteConn() error {
 		buf := make([]byte, MaxSegmentSize)
 		n, err := t.remoteConn.Read(buf[:])
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		t.remoteChan <- &proto.Packet{
 			Body: buf[:n],
+			Type: proto.PACKET_TYPE_BODY,
 		}
 
 	}
@@ -65,6 +131,48 @@ func (t *TunnelService) Close() error {
 }
 
 func (t *TunnelService) Connect(stream proto.TunnelService_ConnectServer) error {
+
+	if err := t.authenticate(stream); err != nil {
+		return err
+	}
+
+	if err := t.createRemoteConnection(stream.Context(), t.remoteAddr); err != nil {
+		return err
+	}
+
+	log.Println("new connection: server_ready")
+
+	go func() {
+
+		for {
+			select {
+			case p, ok := <-t.remoteChan:
+				if p != nil && ok {
+					if err := stream.Send(p); err != nil {
+						log.Println(err)
+					}
+				}
+			case <-stream.Context().Done():
+				t.remoteConn.Close()
+				return
+			}
+		}
+
+	}()
+
+	for {
+
+		req, err := stream.Recv()
+		if err != nil {
+			return errors.Wrapf(err, "can't receive message")
+		}
+		t.localChan <- req
+
+	}
+
+}
+
+func (t *TunnelService) authenticate(stream proto.TunnelService_ConnectServer) error {
 
 	headers, ok := metadata.FromIncomingContext(stream.Context())
 	if !ok {
@@ -80,31 +188,5 @@ func (t *TunnelService) Connect(stream proto.TunnelService_ConnectServer) error 
 		return errors.New("password incorrect")
 	}
 
-	log.Println("new connection: server_ready")
-
-	go func() {
-
-		for {
-			p := <-t.remoteChan
-			if p.Body != nil {
-				if err := stream.Send(p); err != nil {
-					log.Println(err)
-				}
-			}
-		}
-
-	}()
-
-	for {
-
-		req, err := stream.Recv()
-		if err != nil {
-			return errors.Wrapf(err, "can't receive message")
-		}
-
-		//log.Println(fmt.Sprintf("new packet: len[%d]", len(req.Body)))
-		t.localChan <- req
-
-	}
-
+	return nil
 }

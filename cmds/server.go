@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
@@ -88,13 +87,8 @@ func newServerCommand() *cobra.Command {
 
 			server := grpc.NewServer(opts...)
 
-			remoteConn, err := createRemoteConnection(cFlags.remoteaddr)
-			if err != nil {
-				return err
-			}
-
 			// Register binance services
-			svc := service.NewTunnel(remoteConn, cFlags.password)
+			svc := service.NewTunnel(cFlags.remoteaddr, cFlags.password)
 			defer svc.Close()
 
 			proto.RegisterTunnelServiceServer(server, svc)
@@ -117,30 +111,6 @@ func newServerCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&cFlags.insecure, "insecure", "I", false, "Start the server without tls")
 	cmd.Flags().StringVarP(&cFlags.password, "password", "p", "", "Server password")
 	return cmd
-}
-
-func createRemoteConnection(address string) (*net.UDPConn, error) {
-
-	remote := strings.Split(address, ":")
-	rport, err := strconv.Atoi(remote[1])
-	if err != nil {
-		log.Fatal(errors.New("listen flag should contains ip:port"))
-	}
-
-	remoteConn, err := net.DialUDP(
-		"udp",
-		&net.UDPAddr{},
-		&net.UDPAddr{
-			IP:   net.ParseIP(remote[0]),
-			Port: rport,
-		},
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return remoteConn, nil
 }
 
 func loadTLSCredentials(certFile, keyFile string) (*tls.Certificate, error) {

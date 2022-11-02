@@ -36,7 +36,7 @@ func newGenCertificatesCommand() *cobra.Command {
 			cert := certificate.Certificate{
 				Subject: "CN=Josh",
 				KeyType: certificate.KeyTypeRSA,
-				KeySize: 4096,
+				KeySize: 1024,
 			}
 
 			if cFlags.domain != "" {

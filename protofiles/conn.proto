@@ -3,8 +3,16 @@ package proto;
 
 option go_package = "/proto";
 
+enum PACKET_TYPE {
+  UNKNOWN = 0;
+  PING    = 1;
+  PONG    = 2;
+  BODY    = 3;
+}
+
 message Packet {
-  bytes body = 1;
+  PACKET_TYPE type = 1;
+  bytes body = 2;
 }
 
 service TunnelService {

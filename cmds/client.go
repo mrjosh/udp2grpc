@@ -1,7 +1,6 @@
 package cmds
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -58,7 +57,7 @@ func newClientCommand() *cobra.Command {
 
 				creds, err := credentials.NewClientTLSFromFile(cFlags.certFile, cFlags.serverNameOverride)
 				if err != nil {
-					log.Fatalln(err)
+					return err
 				}
 				opts = append(opts, grpc.WithTransportCredentials(creds))
 			}
@@ -78,7 +77,7 @@ func newClientCommand() *cobra.Command {
 				"password": cFlags.password,
 			})
 
-			ctx := metadata.NewOutgoingContext(context.Background(), md)
+			ctx := metadata.NewOutgoingContext(cmd.Context(), md)
 			stream, err := c.Connect(ctx, callOpts)
 			if err != nil {
 				return err
@@ -86,7 +85,7 @@ func newClientCommand() *cobra.Command {
 
 			log.Println(fmt.Sprintf("connected to tcp:%s client_ready", cFlags.remoteaddr))
 
-			ic, err := client.NewClient(cFlags.localaddr, stream)
+			ic, err := client.NewClient(stream.Context(), cFlags.localaddr, stream)
 			if err != nil {
 				return err
 			}

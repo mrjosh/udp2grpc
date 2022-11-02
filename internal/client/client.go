@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -13,6 +14,7 @@ import (
 )
 
 type Client struct {
+	ctx                   context.Context
 	localConn             *net.UDPConn
 	remoteStream          proto.TunnelService_ConnectClient
 	localChan, remoteChan chan *proto.Packet
@@ -23,13 +25,14 @@ func (c *Client) Close() error {
 	return c.remoteStream.CloseSend()
 }
 
-func NewClient(localAddress string, remoteStream proto.TunnelService_ConnectClient) (*Client, error) {
+func NewClient(ctx context.Context, localAddress string, remoteStream proto.TunnelService_ConnectClient) (*Client, error) {
 	log.Println(fmt.Sprintf("create a new local connection on udp:%s", localAddress))
 	localConn, err := createNewLocalUDPListener(localAddress)
 	if err != nil {
 		return nil, err
 	}
 	c := &Client{
+		ctx:          ctx,
 		remoteStream: remoteStream,
 		localConn:    localConn,
 		localChan:    make(chan *proto.Packet),
@@ -44,12 +47,20 @@ func (c *Client) Listen() error {
 	go func() {
 
 		for {
-			p := <-c.localChan
-			if p.Body != nil {
-				if err := c.remoteStream.Send(p); err != nil {
-					log.Println(err)
+
+			select {
+			case p, ok := <-c.localChan:
+				if p != nil && ok {
+					if err := c.remoteStream.Send(p); err != nil {
+						log.Println(err)
+						return
+					}
 				}
+			case <-c.ctx.Done():
+				c.remoteStream.CloseSend()
+				return
 			}
+
 		}
 
 	}()
@@ -60,8 +71,6 @@ func (c *Client) Listen() error {
 		if err != nil {
 			return errors.Wrapf(err, "can't receive message")
 		}
-
-		//log.Println(fmt.Sprintf("new packet: len[%d]", len(req.Body)))
 		c.remoteChan <- req
 
 	}
@@ -72,12 +81,12 @@ func createNewLocalUDPListener(address string) (*net.UDPConn, error) {
 
 	local := strings.Split(address, ":")
 	if len(local) < 2 {
-		log.Fatal(errors.New("listen flag should contains ip:port"))
+		return nil, errors.New("listen flag should contains ip:port")
 	}
 
 	rport, err := strconv.Atoi(local[1])
 	if err != nil {
-		log.Fatal(errors.New("listen flag should contains ip:port"))
+		return nil, errors.New("listen flag should contains ip:port")
 	}
 
 	localConn, err := net.ListenUDP(
@@ -103,11 +112,23 @@ func (c *Client) handleLocalConn() error {
 
 		for {
 
-			p := <-c.remoteChan
-			if p.Body != nil && laddr != nil {
-				if _, err := c.localConn.WriteTo(p.Body[:], *laddr); err != nil {
-					log.Println(err)
+			select {
+			case p, ok := <-c.remoteChan:
+				if laddr != nil && ok {
+
+					switch p.Type {
+					case proto.PACKET_TYPE_PING:
+						c.localChan <- &proto.Packet{
+							Type: proto.PACKET_TYPE_PONG,
+						}
+					case proto.PACKET_TYPE_BODY:
+						go c.localConn.WriteTo(p.Body[:], *laddr)
+					}
+
 				}
+			case <-c.ctx.Done():
+				c.localConn.Close()
+				return
 			}
 
 		}
@@ -119,12 +140,13 @@ func (c *Client) handleLocalConn() error {
 		buf := make([]byte, service.MaxSegmentSize)
 		n, localAddr, err := c.localConn.ReadFrom(buf[:])
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-		laddr = &localAddr
 
+		laddr = &localAddr
 		c.localChan <- &proto.Packet{
 			Body: buf[:n],
+			Type: proto.PACKET_TYPE_BODY,
 		}
 
 	}
