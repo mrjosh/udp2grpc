@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/mrjosh/udp2grpc/internal/config"
 	"github.com/mrjosh/udp2grpc/internal/service"
 	"github.com/mrjosh/udp2grpc/proto"
 	"github.com/pkg/errors"
@@ -16,10 +17,7 @@ import (
 )
 
 type NewServerFlags struct {
-	localaddr, remoteaddr string
-	insecure              bool
-	certFile, keyFile     string
-	password              string
+	configfile string
 }
 
 func newServerCommand() *cobra.Command {
@@ -29,53 +27,57 @@ func newServerCommand() *cobra.Command {
 		Short: "Start a udp2grpc tcp/server",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			if cFlags.password == "" {
-				return errors.New("server password is required")
+			if cFlags.configfile == "" {
+				return errors.New("server config-file is required")
 			}
 
-			if cFlags.remoteaddr == "" {
-				return fmt.Errorf("Server remote address is required. try with flag 'utg server -r127.0.0.1:port '")
+			conf, err := config.LoadFile(cFlags.configfile)
+			if err != nil {
+				return err
 			}
 
-			localaddr := strings.Split(cFlags.localaddr, ":")
+			localaddr := strings.Split(conf.Server.Listen, ":")
 			if len(localaddr) < 2 {
-				return fmt.Errorf("Local server address should contain ip:port")
+				return fmt.Errorf("Local server address should match ip:port pattern")
 			}
 
-			listener, err := net.Listen("tcp4", cFlags.localaddr)
+			listener, err := net.Listen("tcp4", conf.Server.Listen)
 			if err != nil {
 				return fmt.Errorf("could not create tcp listener: %v", err)
 			}
 
 			opts := []grpc.ServerOption{}
-			if !cFlags.insecure {
 
-				if cFlags.certFile == "" {
-					return errors.New("--tls-cert-file flag is required in tls mode. turn off tls mode with --insecure flag")
-				}
-				if cFlags.keyFile == "" {
-					return errors.New("--tls-key-file flag is required in tls mode. turn off tls mode with --insecure flag")
-				}
+			if conf.Server.TLS != nil {
+				if !conf.Server.TLS.Insecure {
 
-				tlsCredentials, err := loadTLSCredentials(cFlags.certFile, cFlags.keyFile)
-				if err != nil {
-					return err
-				}
+					if conf.Server.TLS.CertFile == "" {
+						return errors.New("tls.cert_file is required in tls mode. set tls off with tls.insecure in your config file")
+					}
+					if conf.Server.TLS.KeyFile == "" {
+						return errors.New("tls.key_file is required in tls mode. set tls off with tls.insecure in your config file")
+					}
 
-				opts = append(opts, grpc.Creds(credentials.NewServerTLSFromCert(tlsCredentials)))
+					tlsCredentials, err := loadTLSCredentials(conf.Server.TLS.CertFile, conf.Server.TLS.KeyFile)
+					if err != nil {
+						return err
+					}
+
+					opts = append(opts, grpc.Creds(credentials.NewServerTLSFromCert(tlsCredentials)))
+				}
 			}
 
 			server := grpc.NewServer(opts...)
 
 			// Register binance services
-			svc := service.NewTunnel(logger, cFlags.remoteaddr, cFlags.password)
+			svc := service.NewTunnel(logger, conf)
 			defer svc.Close()
 
 			proto.RegisterTunnelServiceServer(server, svc)
 
 			reflection.Register(server)
 
-			logger.Info(fmt.Sprintf("server running on tcp:%s", cFlags.localaddr))
+			logger.Info(fmt.Sprintf("server running on tcp:%s", conf.Server.Listen))
 			if err := server.Serve(listener); err != nil {
 				return fmt.Errorf("could not serve grpc.tcp.listener: %v", err)
 			}
@@ -84,12 +86,7 @@ func newServerCommand() *cobra.Command {
 		},
 	}
 	cmd.SuggestionsMinimumDistance = 1
-	cmd.Flags().StringVarP(&cFlags.localaddr, "local-address", "l", "0.0.0.0:52935", "Local server address")
-	cmd.Flags().StringVarP(&cFlags.remoteaddr, "remote-address", "r", "", "Remote address")
-	cmd.Flags().StringVarP(&cFlags.certFile, "tls-cert-file", "c", "", "Server TLS certificate file")
-	cmd.Flags().StringVarP(&cFlags.keyFile, "tls-key-file", "k", "", "Server TLS key file")
-	cmd.Flags().BoolVarP(&cFlags.insecure, "insecure", "I", false, "Start the server without tls")
-	cmd.Flags().StringVarP(&cFlags.password, "password", "p", "", "Server password")
+	cmd.Flags().StringVarP(&cFlags.configfile, "config-file", "c", "", "Server config file")
 	return cmd
 }
 
@@ -99,6 +96,5 @@ func loadTLSCredentials(certFile, keyFile string) (*tls.Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &serverCert, nil
 }

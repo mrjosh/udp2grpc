@@ -1,9 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var Map *ConfMap
@@ -11,6 +12,7 @@ var Map *ConfMap
 type ConfMap struct {
 	Mode   string         `yaml:"mode"`
 	Server *ServerConfMap `yaml:"server"`
+	Client *ClientConfMap `yaml:"client"`
 }
 
 type ServerConfMap struct {
@@ -18,6 +20,23 @@ type ServerConfMap struct {
 	Listen     string            `yaml:"listen"`
 	TLS        *ServerTLSConfMap `yaml:"tls"`
 	Peers      []*PeerConfMap    `yaml:"peers"`
+}
+
+func (c *ServerConfMap) FindPeer(privatekey string) (*PeerConfMap, error) {
+	for _, p := range c.Peers {
+		if p.PrivateKey == privatekey {
+			return p, nil
+		}
+	}
+	return nil, fmt.Errorf("could not find peer")
+}
+
+type ClientConfMap struct {
+	PrivateKey          string            `yaml:"privatekey"`
+	Remote              string            `yaml:"remote"`
+	Listen              string            `yaml:"listen"`
+	TLS                 *ServerTLSConfMap `yaml:"tls"`
+	PersistentKeepalive int64             `yaml:"persistentKeepalive"`
 }
 
 type ServerTLSConfMap struct {
@@ -28,15 +47,18 @@ type ServerTLSConfMap struct {
 
 type PeerConfMap struct {
 	Name          string   `yaml:"name"`
-	PublicKey     string   `yaml:"publickey"`
+	PrivateKey    string   `yaml:"privatekey"`
 	Remote        string   `yaml:"remote"`
 	AvailableFrom []string `yaml:"available_from"`
 }
 
-func LoadFile(filename string) (err error) {
+func LoadFile(filename string) (confmap *ConfMap, err error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return yaml.NewDecoder(f).Decode(&Map)
+	if err := yaml.NewDecoder(f).Decode(&Map); err != nil {
+		return nil, err
+	}
+	return Map, nil
 }

@@ -3,3 +3,5 @@
 /bin
 /cert
 /config.yaml
+/client.yaml
+/server.yaml

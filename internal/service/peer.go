@@ -9,10 +9,10 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/mrjosh/udp2grpc/internal/config"
 	"github.com/mrjosh/udp2grpc/proto"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 )
 
@@ -29,7 +29,8 @@ type Peer struct {
 	peerLogEntry *logrus.Entry
 }
 
-func NewPeer(stream proto.TunnelService_ConnectServer, logger *logrus.Logger, remoteaddr, password string) (*Peer, error) {
+func NewPeer(stream proto.TunnelService_ConnectServer, logger *logrus.Logger, peerConf *config.PeerConfMap) (*Peer, error) {
+	// create a new uuid for peer connection
 	id := uuid.New().String()
 	// get the current peer IPAddress
 	grpcPeer, ok := peer.FromContext(stream.Context())
@@ -39,6 +40,7 @@ func NewPeer(stream proto.TunnelService_ConnectServer, logger *logrus.Logger, re
 	logEntry := logger.WithFields(logrus.Fields{
 		"id":   id,
 		"addr": grpcPeer.Addr.String(),
+		"peer": peerConf.Name,
 	})
 	p := &Peer{
 		id:           id,
@@ -50,10 +52,7 @@ func NewPeer(stream proto.TunnelService_ConnectServer, logger *logrus.Logger, re
 		peerLogEntry: logEntry,
 	}
 	logEntry.Info("new connection established")
-	if err := p.authenticate(password); err != nil {
-		return nil, err
-	}
-	if err := p.createRemoteConnection(stream.Context(), remoteaddr); err != nil {
+	if err := p.createRemoteConnection(stream.Context(), peerConf.Remote); err != nil {
 		return nil, err
 	}
 	return p, nil
@@ -185,25 +184,6 @@ func (peer *Peer) Handle() error {
 
 	}
 
-}
-
-func (peer *Peer) authenticate(masterPassword string) error {
-
-	headers, ok := metadata.FromIncomingContext(peer.stream.Context())
-	if !ok {
-		return errors.New("could not get metadatas from context")
-	}
-
-	password := headers.Get("password")
-	if len(password) == 0 {
-		return errors.New("password is required")
-	}
-
-	if password[0] != masterPassword {
-		return errors.New("password incorrect")
-	}
-
-	return nil
 }
 
 func (peer *Peer) Close() {

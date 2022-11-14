@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mrjosh/udp2grpc/internal/config"
 	"github.com/mrjosh/udp2grpc/internal/service"
 	"github.com/mrjosh/udp2grpc/proto"
 	"github.com/pkg/errors"
@@ -18,38 +19,19 @@ import (
 )
 
 type Client struct {
-	ctx                   context.Context
-	logger                *logrus.Logger
-	localConn             *net.UDPConn
-	remoteStream          proto.TunnelService_ConnectClient
-	remoteConn            *grpc.ClientConn
-	localChan, remoteChan chan *proto.Packet
-	localConnAddr         net.Addr
-	reconnect             chan bool
-	done                  chan bool
-	password              string
-	remoteaddr            string
-	persistentKeepalive   int64
+	ctx           context.Context
+	conf          *config.ClientConfMap
+	logger        *logrus.Logger
+	localConn     *net.UDPConn
+	remoteStream  proto.TunnelService_ConnectClient
+	remoteConn    *grpc.ClientConn
+	localChan     chan *proto.Packet
+	remoteChan    chan *proto.Packet
+	localConnAddr net.Addr
 }
 
 func (c *Client) Close() error {
 	return c.remoteStream.CloseSend()
-}
-
-func (c *Client) ProcessListen() error {
-
-	go c.listen()
-
-	for {
-		select {
-		case <-c.reconnect:
-			// TODO: reconnect to upstream
-			return fmt.Errorf("TODO: try to reconnect on failure")
-		case <-c.done:
-			return nil
-		}
-	}
-
 }
 
 func (c *Client) waitUntilReady() bool {
@@ -58,24 +40,20 @@ func (c *Client) waitUntilReady() bool {
 	return c.remoteConn.WaitForStateChange(ctx, connectivity.Ready)
 }
 
-func NewClient(ctx context.Context, logger *logrus.Logger, remoteConn *grpc.ClientConn, localaddr, remoteaddr, password string, pka int64) (*Client, error) {
-	logger.Println(fmt.Sprintf("create a new local connection on udp:%s", localaddr))
-	localConn, err := createNewLocalUDPListener(localaddr)
+func NewClient(ctx context.Context, conf *config.ConfMap, logger *logrus.Logger, remoteConn *grpc.ClientConn) (*Client, error) {
+	logger.Println(fmt.Sprintf("create a new local connection on udp:%s", conf.Client.Listen))
+	localConn, err := createNewLocalUDPListener(conf.Client.Listen)
 	if err != nil {
 		return nil, err
 	}
 	c := &Client{
-		ctx:                 ctx,
-		logger:              logger,
-		remoteaddr:          remoteaddr,
-		password:            password,
-		remoteConn:          remoteConn,
-		localConn:           localConn,
-		localChan:           make(chan *proto.Packet),
-		remoteChan:          make(chan *proto.Packet),
-		done:                make(chan bool),
-		reconnect:           make(chan bool),
-		persistentKeepalive: pka,
+		ctx:        ctx,
+		conf:       conf.Client,
+		logger:     logger,
+		remoteConn: remoteConn,
+		localConn:  localConn,
+		localChan:  make(chan *proto.Packet),
+		remoteChan: make(chan *proto.Packet),
 	}
 	go c.handleLocalConn()
 	return c, nil
@@ -89,11 +67,11 @@ func (c *Client) newStream(ctx context.Context, conn *grpc.ClientConn) (proto.Tu
 
 	tunnel := proto.NewTunnelServiceClient(conn)
 	md := metadata.New(map[string]string{
-		"password": c.password,
+		"privatekey": c.conf.PrivateKey,
 	})
 
 	callOpts := []grpc.CallOption{}
-	c.logger.Infof("connecting to tcp:%s", c.remoteaddr)
+	c.logger.Infof("connecting to tcp:%s", c.conf.Remote)
 
 	mdCtx := metadata.NewOutgoingContext(ctx, md)
 	stream, err := tunnel.Connect(mdCtx, callOpts...)
@@ -106,7 +84,7 @@ func (c *Client) newStream(ctx context.Context, conn *grpc.ClientConn) (proto.Tu
 
 func (c *Client) pingPongKeepAlive() {
 
-	ticker := time.NewTicker(time.Second * time.Duration(c.persistentKeepalive))
+	ticker := time.NewTicker(time.Second * time.Duration(c.conf.PersistentKeepalive))
 	for {
 		<-ticker.C
 		c.remoteStream.Send(&proto.Packet{
@@ -116,7 +94,7 @@ func (c *Client) pingPongKeepAlive() {
 
 }
 
-func (c *Client) listen() error {
+func (c *Client) Listen() error {
 
 	stream, err := c.newStream(c.ctx, c.remoteConn)
 	if err != nil {
@@ -124,7 +102,7 @@ func (c *Client) listen() error {
 	}
 
 	c.remoteStream = stream
-	c.logger.Infof("connected to tcp:%s client_ready", c.remoteaddr)
+	c.logger.Infof("connected to tcp:%s client_ready", c.conf.Remote)
 
 	go c.pingPongKeepAlive()
 
@@ -153,7 +131,7 @@ func (c *Client) listen() error {
 
 		req, err := c.remoteStream.Recv()
 		if err != nil {
-			c.reconnect <- true
+			c.logger.Error(err)
 			return errors.Wrapf(err, "can't receive message")
 		}
 		c.remoteChan <- req
