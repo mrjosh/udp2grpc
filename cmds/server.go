@@ -3,10 +3,8 @@ package cmds
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/mrjosh/udp2grpc/internal/service"
 	"github.com/mrjosh/udp2grpc/proto"
@@ -14,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -26,10 +23,7 @@ type NewServerFlags struct {
 }
 
 func newServerCommand() *cobra.Command {
-
-	log.SetFlags(log.Lshortfile)
 	cFlags := new(NewServerFlags)
-
 	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "Start a udp2grpc tcp/server",
@@ -53,21 +47,7 @@ func newServerCommand() *cobra.Command {
 				return fmt.Errorf("could not create tcp listener: %v", err)
 			}
 
-			kaParams := keepalive.ServerParameters{
-				Time:    10 * time.Second,
-				Timeout: 5 * time.Second,
-			}
-
-			enforcement := keepalive.EnforcementPolicy{
-				MinTime:             3 * time.Second,
-				PermitWithoutStream: true,
-			}
-
-			opts := []grpc.ServerOption{
-				grpc.KeepaliveParams(kaParams),
-				grpc.KeepaliveEnforcementPolicy(enforcement),
-			}
-
+			opts := []grpc.ServerOption{}
 			if !cFlags.insecure {
 
 				if cFlags.certFile == "" {
@@ -88,14 +68,14 @@ func newServerCommand() *cobra.Command {
 			server := grpc.NewServer(opts...)
 
 			// Register binance services
-			svc := service.NewTunnel(cFlags.remoteaddr, cFlags.password)
+			svc := service.NewTunnel(logger, cFlags.remoteaddr, cFlags.password)
 			defer svc.Close()
 
 			proto.RegisterTunnelServiceServer(server, svc)
 
 			reflection.Register(server)
 
-			log.Println(fmt.Sprintf("server running on tcp:%s", cFlags.localaddr))
+			logger.Info(fmt.Sprintf("server running on tcp:%s", cFlags.localaddr))
 			if err := server.Serve(listener); err != nil {
 				return fmt.Errorf("could not serve grpc.tcp.listener: %v", err)
 			}

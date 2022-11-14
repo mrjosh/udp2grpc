@@ -2,16 +2,15 @@ package cmds
 
 import (
 	"fmt"
-	"log"
 	"strings"
+	"time"
 
 	"github.com/mrjosh/udp2grpc/internal/client"
-	"github.com/mrjosh/udp2grpc/proto"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 )
 
 type NewClientFlags struct {
@@ -19,13 +18,11 @@ type NewClientFlags struct {
 	localaddr, remoteaddr        string
 	certFile, serverNameOverride string
 	password                     string
+	persistentKeepalive          int64
 }
 
 func newClientCommand() *cobra.Command {
-
-	log.SetFlags(log.Lshortfile)
 	cFlags := new(NewClientFlags)
-
 	cmd := &cobra.Command{
 		Use:   "client",
 		Short: "Start a udp2grpc tcp/client",
@@ -44,7 +41,10 @@ func newClientCommand() *cobra.Command {
 				return fmt.Errorf("Remote server address should contain ip:port")
 			}
 
-			opts := []grpc.DialOption{}
+			opts := []grpc.DialOption{
+				grpc.WithBlock(),
+			}
+
 			if cFlags.insecure {
 				opts = append(opts, grpc.WithInsecure())
 			}
@@ -62,36 +62,26 @@ func newClientCommand() *cobra.Command {
 				opts = append(opts, grpc.WithTransportCredentials(creds))
 			}
 
-			conn, err := grpc.Dial(cFlags.remoteaddr, opts...)
+			remoteConn, err := grpc.DialContext(cmd.Context(), cFlags.remoteaddr, opts...)
 			if err != nil {
 				return fmt.Errorf("did not connect: %v", err)
 			}
 
-			c := proto.NewTunnelServiceClient(conn)
-
-			log.Println(fmt.Sprintf("connecting to tcp:%s", cFlags.remoteaddr))
-
-			callOpts := grpc.EmptyCallOption{}
-
-			md := metadata.New(map[string]string{
-				"password": cFlags.password,
-			})
-
-			ctx := metadata.NewOutgoingContext(cmd.Context(), md)
-			stream, err := c.Connect(ctx, callOpts)
-			if err != nil {
-				return err
-			}
-
-			log.Println(fmt.Sprintf("connected to tcp:%s client_ready", cFlags.remoteaddr))
-
-			ic, err := client.NewClient(stream.Context(), cFlags.localaddr, stream)
+			ic, err := client.NewClient(
+				cmd.Context(),
+				logger,
+				remoteConn,
+				cFlags.localaddr,
+				cFlags.remoteaddr,
+				cFlags.password,
+				cFlags.persistentKeepalive,
+			)
 			if err != nil {
 				return err
 			}
 			defer ic.Close()
 
-			return ic.Listen()
+			return ic.ProcessListen()
 		},
 	}
 
@@ -102,5 +92,21 @@ func newClientCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&cFlags.serverNameOverride, "tls-server-name", "o", "", "TLS server name override")
 	cmd.Flags().BoolVarP(&cFlags.insecure, "insecure", "I", false, "Connect to server without tls")
 	cmd.Flags().StringVarP(&cFlags.password, "password", "p", "", "Server password")
+	cmd.Flags().Int64VarP(&cFlags.persistentKeepalive, "PersistentKeepalive", "P", 30, "Persistent Keepalive")
 	return cmd
+}
+
+func reconnect(remoteaddr string, conn *grpc.ClientConn) error {
+
+	logger.Warnf("reconnecting to tcp:%s", remoteaddr)
+
+	if conn.GetState() != connectivity.Ready {
+		ticker := time.NewTicker(time.Second * 5)
+		for {
+			<-ticker.C
+			conn.Connect()
+		}
+	}
+
+	return nil
 }

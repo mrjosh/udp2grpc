@@ -2,7 +2,6 @@ package cmds
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/mrjosh/udp2grpc/internal/certificate"
@@ -16,10 +15,7 @@ type NewGenCertificatesFlags struct {
 }
 
 func newGenCertificatesCommand() *cobra.Command {
-
-	log.SetFlags(log.Lshortfile)
 	cFlags := new(NewGenCertificatesFlags)
-
 	cmd := &cobra.Command{
 		Use:   "gen-certificates",
 		Short: "Generate certificates for server and client",

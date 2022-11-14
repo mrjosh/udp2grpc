@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 
@@ -19,9 +18,6 @@ var (
 )
 
 func main() {
-
-	log.SetFlags(log.Lshortfile)
-
 	rootCmd := &cobra.Command{
 		Use: "utg",
 		Long: `
@@ -50,5 +46,4 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
 }
