@@ -38,6 +38,38 @@ utg gen-certificates --dir ./cert --domain example.com
 utg gen-certificates --dir ./cert --domain example.com --ip 127.0.0.1
 ```
 
+### Generate a new privatekey
+```bash
+utg genkey
+# output
+# R1kvISImDxxRS1AnMDUrSy0xVg9XFzhDCyszGSdAX04=
+```
+
+### Generate a new peer config
+```bash
+utg peer -n Joshua-MBP -r 127.0.0.1:51820
+```
+output 
+```
+server side config:
+-------------------------------------------------------------
+...
+peers:
+- name: Joshua-MBP
+  privatekey: LlRIVyEqVxtZORxdIgoiMTg6UxIsTCBYRC4/K0U4VjM=
+  remote: 127.0.0.1:51820
+  available_from:
+  - 0.0.0.0/0
+...
+
+client side config:
+-------------------------------------------------------------
+client:
+  privatekey: LlRIVyEqVxtZORxdIgoiMTg6UxIsTCBYRC4/K0U4VjM=
+  remote: '{{ server ip address }}'
+  ...
+```
+
 ### Config
 Server side config-file
 ```yaml

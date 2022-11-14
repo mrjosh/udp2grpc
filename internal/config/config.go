@@ -34,9 +34,9 @@ func (c *ServerConfMap) FindPeer(privatekey string) (*PeerConfMap, error) {
 type ClientConfMap struct {
 	PrivateKey          string            `yaml:"privatekey"`
 	Remote              string            `yaml:"remote"`
-	Listen              string            `yaml:"listen"`
-	TLS                 *ServerTLSConfMap `yaml:"tls"`
-	PersistentKeepalive int64             `yaml:"persistentKeepalive"`
+	Listen              string            `yaml:"listen,omitempty"`
+	TLS                 *ServerTLSConfMap `yaml:"tls,omitempty"`
+	PersistentKeepalive int64             `yaml:"persistentKeepalive,omitempty"`
 }
 
 type ServerTLSConfMap struct {
