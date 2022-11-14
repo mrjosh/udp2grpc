@@ -38,15 +38,47 @@ utg gen-certificates --dir ./cert --domain example.com
 utg gen-certificates --dir ./cert --domain example.com --ip 127.0.0.1
 ```
 
+### Config
+Server side config-file
+```yaml
+server:
+
+  privatekey: "{{ super-secure-server-private-key }}"
+  listen: 0.0.0.0:52935
+  tls:
+    insecure: false
+    cert_file: ./cert/server.crt
+    key_file: ./cert/server.key
+
+  peers:
+  - name: "PeerName"
+    privatekey: "{{ super-secure-client-private-key }}"
+    remote: "127.0.0.1:51820"
+    available_from:
+      - 192.168.1.0/24
+```
+
+Client side config-file
+```yaml
+client:
+  privatekey: "{{ super-secure-client-private-key }}"
+  listen: 0.0.0.0:51820
+  remote: 127.0.0.1:52935
+  persistentKeepalive: 30
+  tls:
+    insecure: false
+    cert_file: ./cert/server.crt
+```
+
 ### Running
 Assume your server domain example.com and you have a service listening on udp port 51820.
 if you wish to run the server without tls, use the flag `--insecure` for client and server
 ```bash
 # Run at server side:
-utg server -l0.0.0.0:52935 -r127.0.0.1:51820 --password="super-secure-password" --tls-cert-file cert/server.crt --tls-key-file cert/server.key
+utg server --config-file server.yaml
 
 # Run at client side:
-utg client -rexample.com:52935 -l0.0.0.0:51820 --password="super-secure-password" --tls-cert-file cert/server.crt 
+utg client --config-file client.yaml
 ```
 
 ### Docker-Compose example
@@ -77,20 +109,11 @@ services:
       - "52935:52935/tcp"
     command:
       - "server"
-      # grpc listen address
-      - "-l0.0.0.0:52935"
-      # remote conn address
-      - "-r127.0.0.1:51820"
-      # tls certificate public file
-      - "--tls-cert-file"
-      - "/cert/server.crt"
-      # tls certificate pivate file
-      - "--tls-key-file"
-      - "/cert/server.key"
-      # super secure password here
-      - "--password=super-secure-password"
+      - "--config-file"
+      - "/config/server.yaml"
     volumes:
       - "$PWD/cert/:/cert"
+      - "$PWD/server.yaml:/config/server.yaml"
     restart: unless-stopped
     depends_on:
       gen-certificates:
@@ -103,17 +126,11 @@ services:
       - "51820:51820/udp"
     command:
       - "client"
-      # local udp connection address
-      - "-l0.0.0.0:51820"
-      # server ip address with port
-      - "-r127.0.0.1:52935"
-      # tls certificate public file
-      - "--tls-cert-file"
-      - "/cert/server.crt"
-      # super secure password here
-      - "--password=super-secure-password"
+      - "--config-file"
+      - "/config/client.yaml"
     volumes:
       - "$PWD/cert/server.crt:/cert/server.crt"
+      - "$PWD/client.yaml:/config/client.yaml"
     restart: unless-stopped
     depends_on:
       gen-certificates:
