@@ -11,6 +11,11 @@
 
 ## ⚠️ This project is still in early development. ⚠️
 
+![image](image.jpg)
+
+## Inspiration
+This project is inspired heavily from [udp2raw](https://github.com/wangyu-/udp2raw)
+
 ## UDP2gRPC
 A Tunnel which Turns UDP Traffic into Encrypted gRPC/TCP Traffic,helps you Bypass UDP FireWalls(or Unstable UDP Environment)
 Assume your UDP is blocked or being QOS-ed or just poorly supported.
